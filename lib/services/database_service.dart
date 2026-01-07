@@ -22,6 +22,17 @@ class DatabaseService {
     return results.isNotEmpty ? results.first : null;
   }
 
+  Future<Map<String, dynamic>?> getAnimeByMalId(int? malId) async {
+    if (malId == null) return null;
+    final db = await database;
+    final results = await db.query(
+      'anime',
+      where: 'mal_id = ?',
+      whereArgs: [malId],
+    );
+    return results.isNotEmpty ? results.first : null;
+  }
+
   Future<int> updateAnime(int id, Map<String, dynamic> anime) async {
     final db = await database;
     return await db.update('anime', anime, where: 'id = ?', whereArgs: [id]);

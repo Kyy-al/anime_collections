@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
+import '../services/database_service.dart';
 import '../main.dart';
 
 class AddAnimePage extends StatefulWidget {
@@ -50,13 +51,26 @@ class _AddAnimePageState extends State<AddAnimePage> {
         'release_date': _releaseDateController.text.trim(),
       };
 
-      await ApiService().createAnime(animeData, authProvider.token!);
+      final serverResponse = await ApiService().createAnime(
+        animeData,
+        authProvider.token!,
+      );
+
+      // Also save to local database with server ID if available
+      final dbService = DatabaseService();
+      final localAnimeData = {
+        ...animeData,
+        'created_at': DateTime.now().toIso8601String(),
+        // Use server ID as mal_id if provided
+        if (serverResponse['id'] != null) 'mal_id': serverResponse['id'],
+      };
+      final insertedId = await dbService.insertAnime(localAnimeData);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Anime berhasil ditambahkan')),
         );
-        Navigator.of(context).pop();
+        Navigator.of(context).pop(true);
       }
     } catch (e) {
       if (mounted) {

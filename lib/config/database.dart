@@ -18,10 +18,18 @@ class DatabaseConfig {
     final path = join(dbPath, filePath);
 
     return await openDatabase(
-      path,
-      version: 1,
+      path, 
+      version: 2,
       onCreate: _createDB,
+      onUpgrade: _upgradeDB,
     );
+  }
+
+  Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Add mal_id column to anime table
+      await db.execute('ALTER TABLE anime ADD COLUMN mal_id INTEGER');
+    }
   }
 
   Future _createDB(Database db, int version) async {
@@ -52,6 +60,7 @@ class DatabaseConfig {
         image_url $textType,
         trailer_url $textType,
         release_date $textType,
+        mal_id INTEGER,
         is_favorite INTEGER DEFAULT 0,
         created_at $textType
       )

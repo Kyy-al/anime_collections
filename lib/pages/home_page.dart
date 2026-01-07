@@ -27,47 +27,73 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _loadAnime();
+    _refreshAnimeList();
   }
 
-  Future<void> _loadAnime() async {
+  Future<void> _refreshAnimeList() async {
     setState(() => _isLoading = true);
 
     try {
-      // Try to load from API first
+      // Load from local database first
+      final localAnime = await _dbService.getAllAnime();
+
+      // Filter out invalid entries
+      final validAnime = localAnime.where((anime) {
+        return anime['title'] != null && anime['title'].toString().isNotEmpty;
+      }).toList();
+
+      setState(() {
+        _animeList = validAnime;
+      });
+
+      // Try to sync with API if authenticated
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final animeList = await _apiService.getAllAnime(
-        token: authProvider.token,
-      );
+      if (authProvider.isAuthenticated && authProvider.token != null) {
+        try {
+          final apiAnime = await _apiService.getAllAnime(
+            token: authProvider.token,
+          );
 
-      // Cache to local database
-      await _dbService.cacheAnimeList(
-        animeList.map((e) => e as Map<String, dynamic>).toList(),
-      );
+          // Cache API data to local database
+          await _dbService.cacheAnimeList(
+            apiAnime.map((e) => e as Map<String, dynamic>).toList(),
+          );
 
-      setState(() {
-        _animeList = animeList.map((e) => e as Map<String, dynamic>).toList();
-      });
-    } catch (e) {
-      // If API fails, load from cache
-      final cachedAnime = await _dbService.getAllAnime();
-      setState(() {
-        _animeList = cachedAnime;
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Menampilkan data offline')),
-        );
+          // Reload from database to get combined data
+          final updatedAnime = await _dbService.getAllAnime();
+          setState(() {
+            _animeList = updatedAnime;
+          });
+        } catch (apiError) {
+          // API failed, but we already have local data
+          print('API sync failed: $apiError');
+        }
       }
+    } catch (e) {
+      print('Error loading anime: $e');
+      setState(() {
+        _animeList = [];
+      });
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
+  Future<void> _onAddAnimePressed() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AddAnimePage()),
+    );
+
+    if (result == true) {
+      // Anime berhasil ditambahkan, refresh list
+      await _refreshAnimeList();
+    }
+  }
+
   Future<void> _searchAnime(String query) async {
     if (query.isEmpty) {
-      _loadAnime();
+      _refreshAnimeList();
       return;
     }
 
@@ -116,7 +142,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     return RefreshIndicator(
-      onRefresh: _loadAnime,
+      onRefresh: _refreshAnimeList,
       child: GridView.builder(
         padding: const EdgeInsets.all(16),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -136,11 +162,16 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildAnimeCard(Map<String, dynamic> anime) {
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
+      onTap: () async {
+        final result = await Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => DetailPage(anime: anime)),
         );
+
+        if (result == true) {
+          // Anime diedit atau dihapus, refresh list
+          await _refreshAnimeList();
+        }
       },
       child: Card(
         clipBehavior: Clip.antiAlias,
@@ -234,11 +265,7 @@ class _HomePageState extends State<HomePage> {
       body: pages[_currentIndex],
       floatingActionButton: _currentIndex == 0
           ? FloatingActionButton(
-              onPressed: () {
-                Navigator.of(
-                  context,
-                ).push(MaterialPageRoute(builder: (_) => const AddAnimePage()));
-              },
+              onPressed: _onAddAnimePressed,
               child: const Icon(Icons.add),
               backgroundColor: Colors.deepPurpleAccent,
             )
@@ -301,7 +328,7 @@ class _HomePageState extends State<HomePage> {
                           icon: const Icon(Icons.clear),
                           onPressed: () {
                             _searchController.clear();
-                            _loadAnime();
+                            _refreshAnimeList();
                           },
                         )
                       : null,

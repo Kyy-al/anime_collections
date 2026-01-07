@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
 import '../services/database_service.dart';
+import '../main.dart';
 import 'detail_page.dart';
 
 class FavoritePage extends StatefulWidget {
@@ -23,9 +25,11 @@ class _FavoritePageState extends State<FavoritePage> {
 
   Future<void> _loadFavorites() async {
     setState(() => _isLoading = true);
-    
+
     try {
-      final favorites = await _dbService.getFavorites(1); // Replace with actual user_id
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final userId = authProvider.userId ?? 1;
+      final favorites = await _dbService.getFavorites(userId);
       setState(() {
         _favorites = favorites;
         _isLoading = false;
@@ -33,9 +37,9 @@ class _FavoritePageState extends State<FavoritePage> {
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading favorites: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading favorites: $e')));
       }
     }
   }
@@ -44,7 +48,7 @@ class _FavoritePageState extends State<FavoritePage> {
     try {
       await _dbService.removeFromFavorites(animeId);
       _loadFavorites(); // Reload list
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -55,9 +59,9 @@ class _FavoritePageState extends State<FavoritePage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -76,18 +80,18 @@ class _FavoritePageState extends State<FavoritePage> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _favorites.isEmpty
-              ? _buildEmptyState()
-              : RefreshIndicator(
-                  onRefresh: _loadFavorites,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _favorites.length,
-                    itemBuilder: (context, index) {
-                      final anime = _favorites[index];
-                      return _buildFavoriteCard(anime);
-                    },
-                  ),
-                ),
+          ? _buildEmptyState()
+          : RefreshIndicator(
+              onRefresh: _loadFavorites,
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: _favorites.length,
+                itemBuilder: (context, index) {
+                  final anime = _favorites[index];
+                  return _buildFavoriteCard(anime);
+                },
+              ),
+            ),
     );
   }
 
@@ -96,11 +100,7 @@ class _FavoritePageState extends State<FavoritePage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.favorite_border,
-            size: 100,
-            color: Colors.grey[600],
-          ),
+          Icon(Icons.favorite_border, size: 100, color: Colors.grey[600]),
           const SizedBox(height: 16),
           Text(
             'Belum ada favorit',
@@ -113,10 +113,7 @@ class _FavoritePageState extends State<FavoritePage> {
           const SizedBox(height: 8),
           Text(
             'Tambahkan anime favorit kamu!',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[500],
-            ),
+            style: TextStyle(fontSize: 16, color: Colors.grey[500]),
           ),
         ],
       ),
@@ -127,16 +124,12 @@ class _FavoritePageState extends State<FavoritePage> {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         onTap: () {
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => DetailPage(anime: anime),
-            ),
+            MaterialPageRoute(builder: (context) => DetailPage(anime: anime)),
           ).then((_) => _loadFavorites()); // Reload when coming back
         },
         borderRadius: BorderRadius.circular(12),
@@ -156,9 +149,7 @@ class _FavoritePageState extends State<FavoritePage> {
                     width: 80,
                     height: 120,
                     color: Colors.grey[800],
-                    child: const Center(
-                      child: CircularProgressIndicator(),
-                    ),
+                    child: const Center(child: CircularProgressIndicator()),
                   ),
                   errorWidget: (context, url, error) => Container(
                     width: 80,
@@ -169,7 +160,7 @@ class _FavoritePageState extends State<FavoritePage> {
                 ),
               ),
               const SizedBox(width: 16),
-              
+
               // Info
               Expanded(
                 child: Column(
@@ -187,19 +178,12 @@ class _FavoritePageState extends State<FavoritePage> {
                     const SizedBox(height: 8),
                     Text(
                       anime['genre'] ?? '',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[400],
-                      ),
+                      style: TextStyle(fontSize: 14, color: Colors.grey[400]),
                     ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        const Icon(
-                          Icons.star,
-                          size: 16,
-                          color: Colors.amber,
-                        ),
+                        const Icon(Icons.star, size: 16, color: Colors.amber),
                         const SizedBox(width: 4),
                         Text(
                           '${anime['rating'] ?? 0}',
@@ -213,23 +197,17 @@ class _FavoritePageState extends State<FavoritePage> {
                     const SizedBox(height: 8),
                     Text(
                       anime['description'] ?? '',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[500],
-                      ),
+                      style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
-              
+
               // Remove Button
               IconButton(
-                icon: const Icon(
-                  Icons.favorite,
-                  color: Colors.red,
-                ),
+                icon: const Icon(Icons.favorite, color: Colors.red),
                 onPressed: () {
                   showDialog(
                     context: context,

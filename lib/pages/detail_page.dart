@@ -54,10 +54,26 @@ class _DetailPageState extends State<DetailPage> {
 
   Future<void> _checkFavoriteStatus() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final userId = authProvider.userId ?? 1; // Fallback to 1 if not set
-    // Check if anime is in favorites
-    final isFav = await _dbService.isFavorite(widget.anime['id'], userId);
-    setState(() => _isFavorite = isFav);
+    final userId = authProvider.userId ?? 1;
+
+    // Check if anime is from local database (has 'id') or from Jikan (has 'mal_id')
+    final animeId = widget.anime['id'];
+    if (animeId != null) {
+      // Anime from local database
+      final isFav = await _dbService.isFavorite(animeId, userId);
+      setState(() => _isFavorite = isFav);
+    } else {
+      // Anime from Jikan - check if it exists in local database by mal_id
+      final localAnime = await _dbService.getAnimeByMalId(
+        widget.anime['mal_id'],
+      );
+      if (localAnime != null) {
+        final isFav = await _dbService.isFavorite(localAnime['id'], userId);
+        setState(() => _isFavorite = isFav);
+      } else {
+        setState(() => _isFavorite = false);
+      }
+    }
   }
 
   void _initializeVideoPlayer() {
@@ -85,10 +101,40 @@ class _DetailPageState extends State<DetailPage> {
     setState(() => _isLoading = true);
 
     try {
+      int animeIdToUse;
+      final animeId = widget.anime['id'];
+
+      if (animeId != null) {
+        // Anime from local database
+        animeIdToUse = animeId;
+      } else {
+        // Anime from Jikan - check if it exists in local database
+        var localAnime = await _dbService.getAnimeByMalId(
+          widget.anime['mal_id'],
+        );
+        if (localAnime == null) {
+          // Save anime to local database first
+          final animeData = {
+            'title': widget.anime['title'] ?? '',
+            'description': widget.anime['description'] ?? '',
+            'genre': widget.anime['genre'] ?? '',
+            'rating': widget.anime['rating'] ?? 0.0,
+            'image_url': widget.anime['image_url'] ?? '',
+            'trailer_url': widget.anime['trailer_url'] ?? '',
+            'release_date': widget.anime['release_date'] ?? '',
+            'mal_id': widget.anime['mal_id'],
+            'created_at': DateTime.now().toIso8601String(),
+          };
+          animeIdToUse = await _dbService.insertAnime(animeData);
+        } else {
+          animeIdToUse = localAnime['id'];
+        }
+      }
+
       if (_isFavorite) {
-        await _dbService.removeFromFavorites(widget.anime['id']);
+        await _dbService.removeFromFavorites(animeIdToUse);
         // Also call API to remove from server
-        // await _apiService.removeFavorite(widget.anime['id'], authProvider.token!);
+        // await _apiService.removeFavorite(animeIdToUse, authProvider.token!);
 
         if (mounted) {
           ScaffoldMessenger.of(
@@ -96,9 +142,9 @@ class _DetailPageState extends State<DetailPage> {
           ).showSnackBar(const SnackBar(content: Text('Dihapus dari favorit')));
         }
       } else {
-        await _dbService.addToFavorites(widget.anime['id'], userId);
+        await _dbService.addToFavorites(animeIdToUse, userId);
         // Also call API to add to server
-        // await _apiService.addFavorite(widget.anime['id'], authProvider.token!);
+        // await _apiService.addFavorite(animeIdToUse, authProvider.token!);
 
         await _notificationService.showNotification(
           id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
@@ -122,6 +168,101 @@ class _DetailPageState extends State<DetailPage> {
       }
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _editAnime() async {
+    // Show edit dialog
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => EditAnimeDialog(anime: widget.anime),
+    );
+
+    if (result != null && mounted) {
+      setState(() => _isLoading = true);
+      try {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+        // If anime has a server_id, update remote server; skip otherwise.
+        final serverId = widget.anime['server_id'];
+        if (serverId != null) {
+          await _apiService.updateAnime(serverId, result, authProvider.token!);
+        }
+
+        // Update local database (local id must exist for editable items)
+        final localId = widget.anime['id'];
+        if (localId != null) {
+          await _dbService.updateAnime(localId, result);
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Anime berhasil diupdate')),
+        );
+
+        // Navigate back to refresh
+        Navigator.of(context).pop(true);
+      } catch (e) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      } finally {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _deleteAnime() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hapus Anime'),
+        content: Text(
+          'Apakah Anda yakin ingin menghapus "${widget.anime['title']}"?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      setState(() => _isLoading = true);
+      try {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+        // If anime has a server_id, delete on server first.
+        final serverId = widget.anime['server_id'];
+        if (serverId != null) {
+          await _apiService.deleteAnime(serverId, authProvider.token!);
+        }
+
+        // Delete from local database (local id must exist for deletable items)
+        final localId = widget.anime['id'];
+        if (localId != null) {
+          await _dbService.deleteAnime(localId);
+        }
+
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Anime berhasil dihapus')));
+
+        // Navigate back
+        Navigator.of(context).pop(true);
+      } catch (e) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      } finally {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -165,6 +306,17 @@ class _DetailPageState extends State<DetailPage> {
               ),
             ),
             actions: [
+              // Edit and Delete buttons only for local anime
+              if (widget.anime['id'] != null) ...[
+                IconButton(
+                  icon: const Icon(Icons.edit, color: Colors.white),
+                  onPressed: _editAnime,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.white),
+                  onPressed: _deleteAnime,
+                ),
+              ],
               IconButton(
                 icon: Icon(
                   _isFavorite ? Icons.favorite : Icons.favorite_border,
@@ -539,5 +691,140 @@ class _DetailPageState extends State<DetailPage> {
   void dispose() {
     _youtubeController?.dispose();
     super.dispose();
+  }
+}
+
+class EditAnimeDialog extends StatefulWidget {
+  final Map<String, dynamic> anime;
+
+  const EditAnimeDialog({Key? key, required this.anime}) : super(key: key);
+
+  @override
+  State<EditAnimeDialog> createState() => _EditAnimeDialogState();
+}
+
+class _EditAnimeDialogState extends State<EditAnimeDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _titleController;
+  late final TextEditingController _descriptionController;
+  late final TextEditingController _genreController;
+  late final TextEditingController _imageUrlController;
+  late final TextEditingController _trailerUrlController;
+  late final TextEditingController _ratingController;
+  late final TextEditingController _releaseDateController;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.anime['title'] ?? '');
+    _descriptionController = TextEditingController(
+      text: widget.anime['description'] ?? '',
+    );
+    _genreController = TextEditingController(text: widget.anime['genre'] ?? '');
+    _imageUrlController = TextEditingController(
+      text: widget.anime['image_url'] ?? '',
+    );
+    _trailerUrlController = TextEditingController(
+      text: widget.anime['trailer_url'] ?? '',
+    );
+    _ratingController = TextEditingController(
+      text: (widget.anime['rating'] ?? 0.0).toString(),
+    );
+    _releaseDateController = TextEditingController(
+      text: widget.anime['release_date'] ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _genreController.dispose();
+    _imageUrlController.dispose();
+    _trailerUrlController.dispose();
+    _ratingController.dispose();
+    _releaseDateController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (_formKey.currentState!.validate()) {
+      final result = {
+        'title': _titleController.text.trim(),
+        'description': _descriptionController.text.trim(),
+        'genre': _genreController.text.trim(),
+        'image_url': _imageUrlController.text.trim(),
+        'trailer_url': _trailerUrlController.text.trim(),
+        'rating': double.tryParse(_ratingController.text) ?? 0.0,
+        'release_date': _releaseDateController.text.trim(),
+      };
+      Navigator.of(context).pop(result);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit Anime'),
+      content: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: _titleController,
+                decoration: const InputDecoration(labelText: 'Judul Anime'),
+                validator: (value) => value?.trim().isEmpty ?? true
+                    ? 'Judul tidak boleh kosong'
+                    : null,
+              ),
+              TextFormField(
+                controller: _descriptionController,
+                decoration: const InputDecoration(labelText: 'Sinopsis'),
+                maxLines: 3,
+                validator: (value) => value?.trim().isEmpty ?? true
+                    ? 'Sinopsis tidak boleh kosong'
+                    : null,
+              ),
+              TextFormField(
+                controller: _genreController,
+                decoration: const InputDecoration(labelText: 'Genre'),
+                validator: (value) => value?.trim().isEmpty ?? true
+                    ? 'Genre tidak boleh kosong'
+                    : null,
+              ),
+              TextFormField(
+                controller: _imageUrlController,
+                decoration: const InputDecoration(labelText: 'URL Gambar'),
+                validator: (value) => value?.trim().isEmpty ?? true
+                    ? 'URL gambar tidak boleh kosong'
+                    : null,
+              ),
+              TextFormField(
+                controller: _trailerUrlController,
+                decoration: const InputDecoration(labelText: 'URL Trailer'),
+              ),
+              TextFormField(
+                controller: _ratingController,
+                decoration: const InputDecoration(labelText: 'Rating'),
+                keyboardType: TextInputType.number,
+              ),
+              TextFormField(
+                controller: _releaseDateController,
+                decoration: const InputDecoration(labelText: 'Tanggal Rilis'),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Batal'),
+        ),
+        ElevatedButton(onPressed: _submit, child: const Text('Simpan')),
+      ],
+    );
   }
 }
