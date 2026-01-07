@@ -23,17 +23,18 @@ dependencies:
   cached_network_image: ^3.3.0
   shimmer: ^3.0.0
   carousel_slider: ^4.2.1
+  flutter_inappwebview: ^6.1.5
   
   # Video Player
   video_player: ^2.8.1
-  youtube_player_flutter: ^8.1.2
+  youtube_player_flutter: ^9.1.3
   
   # Notifications
-  flutter_local_notifications: ^16.1.0
+  flutter_local_notifications: ^19.5.0
   
   # Icons
   cupertino_icons: ^1.0.2
-  font_awesome_flutter: ^10.6.0
+  font_awesome_flutter: ^10.12.0
   
   # Image Picker
   image_picker: ^1.0.4
@@ -41,7 +42,7 @@ dependencies:
   # Shared Preferences
   shared_preferences: ^2.2.2
   # Timezone package required by notification scheduling
-  timezone: ^0.9.4
+  timezone: ^0.10.1
   # Path utilities used by database helper
   path: ^1.8.3
 

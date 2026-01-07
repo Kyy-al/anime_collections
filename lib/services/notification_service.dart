@@ -90,8 +90,6 @@ class NotificationService {
       details,
       payload: payload,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
     );
   }
 
@@ -127,9 +125,14 @@ class NotificationService {
 
   // Request permissions (for iOS)
   Future<bool> requestPermissions() async {
-    // Permissions were already requested during init via
-    // `DarwinInitializationSettings(requestAlertPermission: true, ...)`.
-    // Return true to indicate permissions request was (attempted).
-    return true;
+    final bool? result = await _notifications
+        .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin>()
+        ?.requestPermissions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+    return result ?? false;
   }
 }

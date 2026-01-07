@@ -1,6 +1,6 @@
 class ApiConfig {
   // Ganti dengan URL server Anda
-  static const String baseUrl = 'http://192.168.1.100/anime-api';
+  static const String baseUrl = 'http://10.0.2.2/anime-api';
   
   // Auth endpoints
   static const String login = '$baseUrl/auth/login.php';
