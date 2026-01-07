@@ -8,11 +8,11 @@ import 'pages/home_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize services
   await NotificationService().init();
   await DatabaseService().database;
-  
+
   runApp(const MyApp());
 }
 
@@ -60,15 +60,18 @@ class AuthProvider extends ChangeNotifier {
   bool _isAuthenticated = false;
   String? _token;
   Map<String, dynamic>? _user;
+  int? _userId;
 
   bool get isAuthenticated => _isAuthenticated;
   String? get token => _token;
   Map<String, dynamic>? get user => _user;
+  int? get userId => _userId;
 
   Future<void> login(String email, String password) async {
     // API call will be implemented in api_service.dart
     _isAuthenticated = true;
     _token = 'dummy_token';
+    _userId = 1; // For now, set to 1
     notifyListeners();
   }
 
@@ -76,6 +79,7 @@ class AuthProvider extends ChangeNotifier {
     _isAuthenticated = false;
     _token = null;
     _user = null;
+    _userId = null;
     notifyListeners();
   }
 }
@@ -93,10 +97,10 @@ class AnimeProvider extends ChangeNotifier {
   Future<void> fetchAnime() async {
     _isLoading = true;
     notifyListeners();
-    
+
     // API call will be implemented
     await Future.delayed(const Duration(seconds: 1));
-    
+
     _isLoading = false;
     notifyListeners();
   }

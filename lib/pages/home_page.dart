@@ -7,6 +7,7 @@ import '../main.dart';
 import 'detail_page.dart';
 import 'favorite_page.dart';
 import 'profile_page.dart';
+import 'add_anime_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -31,17 +32,19 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _loadAnime() async {
     setState(() => _isLoading = true);
-    
+
     try {
       // Try to load from API first
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final animeList = await _apiService.getAllAnime(token: authProvider.token);
-      
+      final animeList = await _apiService.getAllAnime(
+        token: authProvider.token,
+      );
+
       // Cache to local database
       await _dbService.cacheAnimeList(
         animeList.map((e) => e as Map<String, dynamic>).toList(),
       );
-      
+
       setState(() {
         _animeList = animeList.map((e) => e as Map<String, dynamic>).toList();
       });
@@ -51,7 +54,7 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _animeList = cachedAnime;
       });
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Menampilkan data offline')),
@@ -69,11 +72,14 @@ class _HomePageState extends State<HomePage> {
     }
 
     setState(() => _isLoading = true);
-    
+
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final results = await _apiService.searchAnime(query, token: authProvider.token);
-      
+      final results = await _apiService.searchAnime(
+        query,
+        token: authProvider.token,
+      );
+
       setState(() {
         _animeList = results.map((e) => e as Map<String, dynamic>).toList();
       });
@@ -133,9 +139,7 @@ class _HomePageState extends State<HomePage> {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (context) => DetailPage(anime: anime),
-          ),
+          MaterialPageRoute(builder: (context) => DetailPage(anime: anime)),
         );
       },
       child: Card(
@@ -153,9 +157,7 @@ class _HomePageState extends State<HomePage> {
                     fit: BoxFit.cover,
                     placeholder: (context, url) => Container(
                       color: Colors.grey[800],
-                      child: const Center(
-                        child: CircularProgressIndicator(),
-                      ),
+                      child: const Center(child: CircularProgressIndicator()),
                     ),
                     errorWidget: (context, url, error) => Container(
                       color: Colors.grey[800],
@@ -211,10 +213,7 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(height: 4),
                   Text(
                     anime['genre'] ?? '',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[400],
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey[400]),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -229,14 +228,21 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final pages = [
-      _buildHomePage(),
-      const FavoritePage(),
-      const ProfilePage(),
-    ];
+    final pages = [_buildHomePage(), const FavoritePage(), const ProfilePage()];
 
     return Scaffold(
       body: pages[_currentIndex],
+      floatingActionButton: _currentIndex == 0
+          ? FloatingActionButton(
+              onPressed: () {
+                Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => const AddAnimePage()));
+              },
+              child: const Icon(Icons.add),
+              backgroundColor: Colors.deepPurpleAccent,
+            )
+          : null,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
@@ -244,18 +250,9 @@ class _HomePageState extends State<HomePage> {
         selectedItemColor: Colors.deepPurpleAccent,
         unselectedItemColor: Colors.grey,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.favorite),
-            label: 'Favorit',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profil',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.favorite), label: 'Favorit'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
         ],
       ),
     );
@@ -317,9 +314,7 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ),
-        SliverFillRemaining(
-          child: _buildAnimeGrid(),
-        ),
+        SliverFillRemaining(child: _buildAnimeGrid()),
       ],
     );
   }

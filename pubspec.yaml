@@ -39,8 +39,8 @@ dependencies:
   # Image Picker
   image_picker: ^1.0.4
   
-  # Shared Preferences
-  shared_preferences: ^2.2.2
+  # URL Launcher
+  url_launcher: ^6.2.2
   # Timezone package required by notification scheduling
   timezone: ^0.10.1
   # Path utilities used by database helper

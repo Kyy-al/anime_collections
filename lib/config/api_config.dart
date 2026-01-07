@@ -1,12 +1,12 @@
 class ApiConfig {
   // Ganti dengan URL server Anda
-  static const String baseUrl = 'http://10.0.2.2/anime-api';
-  
+  static const String baseUrl = 'http://192.168.69.197/anime-api';
+
   // Auth endpoints
   static const String login = '$baseUrl/auth/login.php';
   static const String register = '$baseUrl/auth/register.php';
   static const String logout = '$baseUrl/auth/logout.php';
-  
+
   // Anime endpoints
   static const String getAllAnime = '$baseUrl/anime/get_all.php';
   static const String getAnimeById = '$baseUrl/anime/get_by_id.php';
@@ -14,12 +14,12 @@ class ApiConfig {
   static const String updateAnime = '$baseUrl/anime/update.php';
   static const String deleteAnime = '$baseUrl/anime/delete.php';
   static const String searchAnime = '$baseUrl/anime/search.php';
-  
+
   // Favorites endpoints
   static const String getFavorites = '$baseUrl/favorites/get_all.php';
   static const String addFavorite = '$baseUrl/favorites/add.php';
   static const String removeFavorite = '$baseUrl/favorites/remove.php';
-  
+
   // Headers
   static Map<String, String> getHeaders({String? token}) {
     return {

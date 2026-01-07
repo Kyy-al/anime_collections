@@ -5,7 +5,7 @@ class DatabaseService {
   Future<Database> get database async => await DatabaseConfig.instance.database;
 
   // ===== ANIME OPERATIONS =====
-  
+
   Future<int> insertAnime(Map<String, dynamic> anime) async {
     final db = await database;
     return await db.insert('anime', anime);
@@ -18,31 +18,18 @@ class DatabaseService {
 
   Future<Map<String, dynamic>?> getAnimeById(int id) async {
     final db = await database;
-    final results = await db.query(
-      'anime',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    final results = await db.query('anime', where: 'id = ?', whereArgs: [id]);
     return results.isNotEmpty ? results.first : null;
   }
 
   Future<int> updateAnime(int id, Map<String, dynamic> anime) async {
     final db = await database;
-    return await db.update(
-      'anime',
-      anime,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    return await db.update('anime', anime, where: 'id = ?', whereArgs: [id]);
   }
 
   Future<int> deleteAnime(int id) async {
     final db = await database;
-    return await db.delete(
-      'anime',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    return await db.delete('anime', where: 'id = ?', whereArgs: [id]);
   }
 
   Future<List<Map<String, dynamic>>> searchAnime(String query) async {
@@ -58,7 +45,7 @@ class DatabaseService {
   Future<void> cacheAnimeList(List<Map<String, dynamic>> animeList) async {
     final db = await database;
     final batch = db.batch();
-    
+
     for (var anime in animeList) {
       batch.insert(
         'anime',
@@ -66,12 +53,12 @@ class DatabaseService {
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     }
-    
+
     await batch.commit();
   }
 
   // ===== FAVORITES OPERATIONS =====
-  
+
   Future<int> addToFavorites(int animeId, int userId) async {
     final db = await database;
     return await db.insert('favorites', {
@@ -92,12 +79,15 @@ class DatabaseService {
 
   Future<List<Map<String, dynamic>>> getFavorites(int userId) async {
     final db = await database;
-    return await db.rawQuery('''
+    return await db.rawQuery(
+      '''
       SELECT a.* FROM anime a
       INNER JOIN favorites f ON a.id = f.anime_id
       WHERE f.user_id = ?
       ORDER BY f.created_at DESC
-    ''', [userId]);
+    ''',
+      [userId],
+    );
   }
 
   Future<bool> isFavorite(int animeId, int userId) async {
@@ -111,10 +101,14 @@ class DatabaseService {
   }
 
   // ===== USER OPERATIONS =====
-  
+
   Future<int> insertUser(Map<String, dynamic> user) async {
     final db = await database;
-    return await db.insert('users', user);
+    return await db.insert(
+      'users',
+      user,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   Future<Map<String, dynamic>?> getUser() async {
@@ -125,7 +119,16 @@ class DatabaseService {
 
   Future<int> updateUser(Map<String, dynamic> user) async {
     final db = await database;
-    return await db.update('users', user);
+    final id = user['id'] as int?;
+    if (id == null) {
+      // If no id provided, fallback to replacing entire users table entry
+      return await db.insert(
+        'users',
+        user,
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    return await db.update('users', user, where: 'id = ?', whereArgs: [id]);
   }
 
   Future<int> deleteUser() async {
@@ -134,7 +137,7 @@ class DatabaseService {
   }
 
   // ===== NOTIFICATION OPERATIONS =====
-  
+
   Future<int> insertNotification(Map<String, dynamic> notification) async {
     final db = await database;
     return await db.insert('notifications', notification);
@@ -142,10 +145,7 @@ class DatabaseService {
 
   Future<List<Map<String, dynamic>>> getAllNotifications() async {
     final db = await database;
-    return await db.query(
-      'notifications',
-      orderBy: 'created_at DESC',
-    );
+    return await db.query('notifications', orderBy: 'created_at DESC');
   }
 
   Future<List<Map<String, dynamic>>> getUnreadNotifications() async {
@@ -170,15 +170,11 @@ class DatabaseService {
 
   Future<int> deleteNotification(int id) async {
     final db = await database;
-    return await db.delete(
-      'notifications',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    return await db.delete('notifications', where: 'id = ?', whereArgs: [id]);
   }
 
   // ===== UTILITY =====
-  
+
   Future<void> clearAllData() async {
     final db = await database;
     await db.delete('anime');
