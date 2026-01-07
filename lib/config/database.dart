@@ -18,8 +18,8 @@ class DatabaseConfig {
     final path = join(dbPath, filePath);
 
     return await openDatabase(
-      path, 
-      version: 2,
+      path,
+      version: 3,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -29,6 +29,11 @@ class DatabaseConfig {
     if (oldVersion < 2) {
       // Add mal_id column to anime table
       await db.execute('ALTER TABLE anime ADD COLUMN mal_id INTEGER');
+    }
+
+    if (oldVersion < 3) {
+      // Add server_id column to store backend ID for created items
+      await db.execute('ALTER TABLE anime ADD COLUMN server_id INTEGER');
     }
   }
 
@@ -51,7 +56,7 @@ class DatabaseConfig {
 
     // Tabel Anime (cache dari API)
     await db.execute('''
-      CREATE TABLE anime (
+        CREATE TABLE anime (
         id $idType,
         title $textType,
         description $textType,
@@ -61,6 +66,7 @@ class DatabaseConfig {
         trailer_url $textType,
         release_date $textType,
         mal_id INTEGER,
+        server_id INTEGER,
         is_favorite INTEGER DEFAULT 0,
         created_at $textType
       )

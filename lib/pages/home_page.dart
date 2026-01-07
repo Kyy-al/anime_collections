@@ -289,11 +289,15 @@ class _HomePageState extends State<HomePage> {
     return CustomScrollView(
       slivers: [
         SliverAppBar(
-          expandedHeight: 120,
+          expandedHeight: 160,
           floating: true,
           pinned: true,
           backgroundColor: const Color(0xFF16213e),
           flexibleSpace: FlexibleSpaceBar(
+            titlePadding: const EdgeInsetsDirectional.only(
+              start: 16,
+              bottom: 72,
+            ),
             title: const Text(
               'Anime Collection',
               style: TextStyle(fontWeight: FontWeight.bold),

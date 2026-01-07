@@ -51,19 +51,41 @@ class _AddAnimePageState extends State<AddAnimePage> {
         'release_date': _releaseDateController.text.trim(),
       };
 
-      final serverResponse = await ApiService().createAnime(
-        animeData,
-        authProvider.token!,
-      );
+      Map<String, dynamic>? serverResponse;
 
-      // Also save to local database with server ID if available
+      // Only call API when authenticated and token is available
+      if (authProvider.isAuthenticated && authProvider.token != null) {
+        try {
+          serverResponse = await ApiService().createAnime(
+            animeData,
+            authProvider.token!,
+          );
+        } catch (apiErr) {
+          // ignore API error, we'll still save locally
+          serverResponse = null;
+          print('API create failed: $apiErr');
+        }
+      }
+
+      // Also save to local database; include created_at and any server id if returned
       final dbService = DatabaseService();
       final localAnimeData = {
         ...animeData,
         'created_at': DateTime.now().toIso8601String(),
-        // Use server ID as mal_id if provided
-        if (serverResponse['id'] != null) 'mal_id': serverResponse['id'],
       };
+
+      if (serverResponse != null) {
+        // Try to extract id from common response shapes
+        final sid =
+            (serverResponse['data'] is Map &&
+                serverResponse['data']['id'] != null)
+            ? serverResponse['data']['id']
+            : serverResponse['id'];
+        if (sid != null) {
+          localAnimeData['server_id'] = sid;
+        }
+      }
+
       final insertedId = await dbService.insertAnime(localAnimeData);
 
       if (mounted) {
